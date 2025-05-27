@@ -1,8 +1,6 @@
 from data_provider.data_factory import *
 from exp.exp_basic import Exp_Basic
-from models import (Informer, Transformer,
-                    PatchTST, iTransformer, Crossformer,
-                    TCN, LLMPatchTST)
+from models import (Informer, Transformer, TCN, LLMPatchTST)
 from utils.tools import EarlyStopping, adjust_learning_rate, visual, get_model_size
 from utils.metrics import metric
 from utils.losses import MaskedLoss, DownstreamLoss
@@ -70,14 +68,10 @@ class Exp_Main(Exp_Basic):
 
     def _build_model(self):
         model_dict = {
-            # 'Transformer': Transformer,
-            # 'Informer': Informer,
-            # 'PatchTST': PatchTST,
-            # 'iTransformer': iTransformer,
-            # 'Crossformer': Crossformer,
+            'Transformer': Transformer,
+            'Informer': Informer,
             'TCN': TCN,
-            'LLMPatchTST': LLMPatchTST,
-            # 'Reformer': Reformer,
+            'LLMPatchTST': LLMPatchTST
         }
         print(self.args.model)
         selected_model = model_dict[self.args.model]
