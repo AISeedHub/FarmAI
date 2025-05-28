@@ -6,235 +6,11 @@ import torch
 from torch.utils.data import Dataset, DataLoader
 from sklearn.preprocessing import StandardScaler
 
-# from utils.tools import StandardScaler
 from utils.timefeatures import time_features
 
 import warnings
 
 warnings.filterwarnings('ignore')
-
-
-class Dataset_GY_hour(Dataset):
-    def __init__(self, root_path,
-                 flag='train',
-                 inp_seq_len=96,
-                 label_seq_en=48,
-                 pred_seq_len=24):
-        # init
-        assert flag in ['train', 'test', 'val']
-        type_map = {'train': 0, 'val': 1, 'test': 2}
-        self.set_type = type_map[flag]
-
-        self.root_path = root_path
-        self.file_path = os.path.join(self.root_path,
-                                      f'{flag}_{inp_seq_len}_{label_seq_en}_{pred_seq_len}.pt')
-
-        self.__read_data__()
-
-    def __read_data__(self):
-        """
-        Read data from file
-        self.data is [num_series, [seq_x, seq_x_mark, seq_y, seq_y_mark] ]
-        len(data[0]) = 4 is corresponding to seq_x, seq_x_mark, seq_y, seq_y_mark
-        """
-        self.data = torch.load(self.file_path)
-
-    def __getitem__(self, index):
-        """
-        seq_x is [inp_seq_len, 1],
-        seq_x_mark is [inp_seq_len, 4],
-        seq_y is [label_seq_en, 1],
-        seq_y_mark is [label_seq_en, 4]
-        """
-        seq_x, seq_x_mark, seq_y, seq_y_mark = self.data[index]
-        return seq_x, seq_y, seq_x_mark, seq_y_mark
-
-    def __len__(self):
-        return len(self.data)
-
-
-class Dataset_ETT_hour(Dataset):
-    def __init__(self, root_path, flag='train', size=None,
-                 features='S', data_path='ETTh1.csv',
-                 target='OT', scale=True, timeenc=0, freq='h', cols=None):
-        # size [seq_len, label_len, pred_len]
-        # info
-        if size == None:
-            self.seq_len = 24 * 4 * 4
-            self.label_len = 24 * 4
-            self.pred_len = 24 * 4
-        else:
-            self.seq_len = size[0]
-            self.label_len = size[1]
-            self.pred_len = size[2]
-        # init
-        assert flag in ['train', 'test', 'val']
-        type_map = {'train': 0, 'val': 1, 'test': 2}
-        self.set_type = type_map[flag]
-
-        self.features = features
-        self.target = target
-        self.scale = scale
-        self.timeenc = timeenc
-        self.freq = freq
-
-        self.root_path = root_path
-        self.data_path = data_path
-        self.__read_data__()
-
-    def __read_data__(self):
-        self.scaler = StandardScaler()
-        df_raw = pd.read_csv(os.path.join(self.root_path,
-                                          self.data_path))
-
-        border1s = [0, 12 * 30 * 24 - self.seq_len, 12 * 30 * 24 + 4 * 30 * 24 - self.seq_len]
-        border2s = [12 * 30 * 24, 12 * 30 * 24 + 4 * 30 * 24, 12 * 30 * 24 + 8 * 30 * 24]
-        border1 = border1s[self.set_type]
-        border2 = border2s[self.set_type]
-
-        if self.features == 'M' or self.features == 'MS':
-            cols_data = df_raw.columns[1:]
-            df_data = df_raw[cols_data]
-        elif self.features == 'S':
-            df_data = df_raw[[self.target]]
-
-        # data = df_data['LULL'].to_list()
-        #
-        # # Matplotlib and seaborn for plotting
-        # import matplotlib.pyplot as plt
-        # import matplotlib
-        #
-        # matplotlib.rcParams['font.size'] = 18
-        # matplotlib.rcParams['figure.dpi'] = 200
-        #
-        # import seaborn as sns
-        #
-        # for kernel in ['gau', 'cos', 'biw', 'epa', 'tri', 'triw']:
-        #     sns.distplot(data, hist=False, kde=True,
-        #                  kde_kws={'kernel': kernel, 'linewidth': 3},
-        #                  label=kernel)
-        #
-        # plt.legend(prop={'size': 16}, title='Kernel')
-        # plt.title('Density Plot with Different Kernels');
-        # plt.xlabel('Delay (min)')
-        # plt.ylabel('Density')
-        # plt.show()
-
-        if self.scale:
-            train_data = df_data[border1s[0]:border2s[0]]
-            self.scaler.fit(train_data.values)
-            data = self.scaler.transform(df_data.values)
-        else:
-            data = df_data.values
-
-        # date encoding for time series
-        df_stamp = df_raw[['date']][border1:border2]
-        df_stamp['date'] = pd.to_datetime(df_stamp.date)
-        data_stamp = time_features(df_stamp, timeenc=self.timeenc, freq=self.freq)
-
-        self.data_x = data[border1:border2]
-        self.data_y = data[border1:border2]
-        self.data_stamp = data_stamp
-        self.data = data
-
-    def __getitem__(self, index):
-        s_begin = index
-        s_end = s_begin + self.seq_len
-        r_begin = s_end - self.label_len
-        r_end = r_begin + self.label_len + self.pred_len
-
-        seq_x = self.data_x[s_begin:s_end]
-        seq_y = self.data_y[r_begin:r_end]
-        seq_x_mark = self.data_stamp[s_begin:s_end]
-        seq_y_mark = self.data_stamp[r_begin:r_end]
-
-        return seq_x, seq_y, seq_x_mark, seq_y_mark
-
-    def __len__(self):
-        return len(self.data_x) - self.seq_len - self.pred_len + 1
-
-    def inverse_transform(self, data):
-        return self.scaler.inverse_transform(data)
-
-
-class Dataset_ETT_minute(Dataset):
-    def __init__(self, root_path, flag='train', size=None,
-                 features='S', data_path='ETTm1.csv',
-                 target='OT', scale=True, timeenc=0, freq='t', cols=None):
-        # size [seq_len, label_len, pred_len]
-        # info
-        if size == None:
-            self.seq_len = 24 * 4 * 4
-            self.label_len = 24 * 4
-            self.pred_len = 24 * 4
-        else:
-            self.seq_len = size[0]
-            self.label_len = size[1]
-            self.pred_len = size[2]
-        # init
-        assert flag in ['train', 'test', 'val']
-        type_map = {'train': 0, 'val': 1, 'test': 2}
-        self.set_type = type_map[flag]
-
-        self.features = features
-        self.target = target
-        self.scale = scale
-        self.timeenc = timeenc
-        self.freq = freq
-
-        self.root_path = root_path
-        self.data_path = data_path
-        self.__read_data__()
-
-    def __read_data__(self):
-        self.scaler = StandardScaler()
-        df_raw = pd.read_csv(os.path.join(self.root_path,
-                                          self.data_path))
-
-        border1s = [0, 12 * 30 * 24 * 4 - self.seq_len, 12 * 30 * 24 * 4 + 4 * 30 * 24 * 4 - self.seq_len]
-        border2s = [12 * 30 * 24 * 4, 12 * 30 * 24 * 4 + 4 * 30 * 24 * 4, 12 * 30 * 24 * 4 + 8 * 30 * 24 * 4]
-        border1 = border1s[self.set_type]
-        border2 = border2s[self.set_type]
-
-        if self.features == 'M' or self.features == 'MS':
-            cols_data = df_raw.columns[1:]
-            df_data = df_raw[cols_data]
-        elif self.features == 'S':
-            df_data = df_raw[[self.target]]
-
-        if self.scale:
-            train_data = df_data[border1s[0]:border2s[0]]
-            self.scaler.fit(train_data.values)
-            data = self.scaler.transform(df_data.values)
-        else:
-            data = df_data.values
-
-        df_stamp = df_raw[['date']][border1:border2]
-        df_stamp['date'] = pd.to_datetime(df_stamp.date)
-        data_stamp = time_features(df_stamp, timeenc=self.timeenc, freq=self.freq)
-
-        self.data_x = data[border1:border2]
-        self.data_y = data[border1:border2]
-        self.data_stamp = data_stamp
-
-    def __getitem__(self, index):
-        s_begin = index
-        s_end = s_begin + self.seq_len
-        r_begin = s_end - self.label_len
-        r_end = r_begin + self.label_len + self.pred_len
-
-        seq_x = self.data_x[s_begin:s_end]
-        seq_y = self.data_y[r_begin:r_end]
-        seq_x_mark = self.data_stamp[s_begin:s_end]
-        seq_y_mark = self.data_stamp[r_begin:r_end]
-
-        return seq_x, seq_y, seq_x_mark, seq_y_mark
-
-    def __len__(self):
-        return len(self.data_x) - self.seq_len - self.pred_len + 1
-
-    def inverse_transform(self, data):
-        return self.scaler.inverse_transform(data)
 
 
 class Dataset_Custom(Dataset):
@@ -278,8 +54,8 @@ class Dataset_Custom(Dataset):
             cols = self.cols.copy()
             cols.remove(self.target)
         else:
-            cols = list(df_raw.columns);
-            cols.remove(self.target);
+            cols = list(df_raw.columns)
+            cols.remove(self.target)
             cols.remove('date')
         df_raw = df_raw[['date'] + cols + [self.target]]
 
@@ -332,100 +108,11 @@ class Dataset_Custom(Dataset):
         return self.scaler.inverse_transform(data)
 
 
-class Dataset_Pred(Dataset):
-    def __init__(self, root_path, flag='pred', size=None,
-                 features='S', data_path='ETTh1.csv',
-                 target='OT', scale=True, timeenc=0, freq='15min', cols=None):
-        # size [seq_len, label_len, pred_len]
-        # info
-        if size == None:
-            self.seq_len = 24 * 4 * 4
-            self.label_len = 24 * 4
-            self.pred_len = 24 * 4
-        else:
-            self.seq_len = size[0]
-            self.label_len = size[1]
-            self.pred_len = size[2]
-        # init
-        assert flag in ['pred']
-
-        self.features = features
-        self.target = target
-        self.scale = scale
-        self.timeenc = timeenc
-        self.freq = freq
-        self.cols = cols
-        self.root_path = root_path
-        self.data_path = data_path
-        self.__read_data__()
-
-    def __read_data__(self):
-        self.scaler = StandardScaler()
-        df_raw = pd.read_csv(os.path.join(self.root_path,
-                                          self.data_path))
-        '''
-        df_raw.columns: ['date', ...(other features), target feature]
-        '''
-        if self.cols:
-            cols = self.cols.copy()
-            cols.remove(self.target)
-        else:
-            cols = list(df_raw.columns);
-            cols.remove(self.target);
-            cols.remove('date')
-        df_raw = df_raw[['date'] + cols + [self.target]]
-
-        border1 = len(df_raw) - self.seq_len
-        border2 = len(df_raw)
-
-        if self.features == 'M' or self.features == 'MS':
-            cols_data = df_raw.columns[1:]
-            df_data = df_raw[cols_data]
-        elif self.features == 'S':
-            df_data = df_raw[[self.target]]
-
-        if self.scale:
-            self.scaler.fit(df_data.values)
-            data = self.scaler.transform(df_data.values)
-        else:
-            data = df_data.values
-
-        tmp_stamp = df_raw[['date']][border1:border2]
-        tmp_stamp['date'] = pd.to_datetime(tmp_stamp.date)
-        pred_dates = pd.date_range(tmp_stamp.date.values[-1], periods=self.pred_len + 1, freq=self.freq)
-
-        df_stamp = pd.DataFrame(columns=['date'])
-        df_stamp.date = list(tmp_stamp.date.values) + list(pred_dates[1:])
-        data_stamp = time_features(df_stamp, timeenc=self.timeenc, freq=self.freq[-1:])
-
-        self.data_x = data[border1:border2]
-        self.data_y = data[border1:border2]
-        self.data_stamp = data_stamp
-
-    def __getitem__(self, index):
-        s_begin = index
-        s_end = s_begin + self.seq_len
-        r_begin = s_end - self.label_len
-        r_end = r_begin + self.label_len + self.pred_len
-
-        seq_x = self.data_x[s_begin:s_end]
-        seq_y = self.data_y[r_begin:r_begin + self.label_len]
-        seq_x_mark = self.data_stamp[s_begin:s_end]
-        seq_y_mark = self.data_stamp[r_begin:r_end]
-
-        return seq_x, seq_y, seq_x_mark, seq_y_mark
-
-    def __len__(self):
-        return len(self.data_x) - self.seq_len + 1
-
-    def inverse_transform(self, data):
-        return self.scaler.inverse_transform(data)
-
-
 class Dataset_TextPrompt(Dataset):
     def __init__(self, root_path, flag='train', size=None,
                  features='S', data_path='text_dataset_in96_out96.csv',
-                 target='CO2', scale=True, timeenc=0, freq='h', cols=None):
+                 target='CO2', scale=True, timeenc=0, freq='h', cols=None,
+                 use_precomputed_embeddings=False):
         # size [seq_len, label_len, pred_len]
         # info
         if size == None:
@@ -449,13 +136,33 @@ class Dataset_TextPrompt(Dataset):
         self.cols = cols
         self.root_path = root_path
         self.data_path = data_path
+        self.use_precomputed_embeddings = use_precomputed_embeddings
         self.__read_data__()
 
     def __read_data__(self):
         """
         Read data from the text dataset file
         The text dataset has columns: sequence_id, variable, text_description, input_values, output_values
+        If use_precomputed_embeddings is True, it will try to load pre-computed embeddings
         """
+        # Check if we should use pre-computed embeddings
+        if self.use_precomputed_embeddings:
+            # Try to load pre-computed embeddings
+            embeddings_path = os.path.join(self.root_path, 'text_embeddings_in96_out96.pkl')
+            try:
+                print(f"Loading pre-computed embeddings from {embeddings_path}")
+                embeddings_df = pd.read_pickle(embeddings_path)
+                has_embeddings = True
+                print(f"Loaded embeddings for {len(embeddings_df)} text descriptions")
+            except FileNotFoundError:
+                print(f"Warning: Embeddings file {embeddings_path} not found. Falling back to text descriptions.")
+                has_embeddings = False
+                # Fall back to regular text dataset
+                embeddings_df = None
+        else:
+            has_embeddings = False
+            embeddings_df = None
+
         # Check if we're using the compact version or the full version
         if 'compact' in self.data_path:
             # Compact version has only sequence_id, variable, text_description
@@ -479,6 +186,8 @@ class Dataset_TextPrompt(Dataset):
             df_raw = df_raw[df_raw['variable'] == self.target]
             if has_full_data:
                 df_full = df_full[df_full['variable'] == self.target]
+            if has_embeddings:
+                embeddings_df = embeddings_df[embeddings_df['variable'] == self.target]
 
         # Get unique sequence IDs
         sequence_ids = df_raw['sequence_id'].unique()
@@ -490,15 +199,15 @@ class Dataset_TextPrompt(Dataset):
         num_val = num_sequences - num_train - num_test
 
         train_ids = sequence_ids[:num_train]
-        val_ids = sequence_ids[num_train:num_train+num_val]
-        test_ids = sequence_ids[num_train+num_val:]
+        val_ids = sequence_ids[num_train:num_train + num_val]
+        test_ids = sequence_ids[num_train + num_val:]
 
         # Select sequences based on flag
-        if self.set_type == 0:   # train
+        if self.set_type == 0:  # train
             selected_ids = train_ids
-        elif self.set_type == 1: # val
+        elif self.set_type == 1:  # val
             selected_ids = val_ids
-        else:                    # test
+        else:  # test
             selected_ids = test_ids
 
         # Filter data by selected sequence IDs
@@ -508,6 +217,22 @@ class Dataset_TextPrompt(Dataset):
         self.text_descriptions = df_selected['text_description'].values
         self.variables = df_selected['variable'].values
         self.sequence_ids = df_selected['sequence_id'].values
+
+        # Store embeddings if available
+        if has_embeddings:
+            embeddings_selected = embeddings_df[embeddings_df['sequence_id'].isin(selected_ids)]
+            # Make sure the order matches df_selected
+            embeddings_selected = embeddings_selected.set_index(['sequence_id', 'variable'])
+            df_selected_idx = df_selected.set_index(['sequence_id', 'variable'])
+            # Reindex to match df_selected
+            embeddings_selected = embeddings_selected.reindex(df_selected_idx.index)
+            # Reset index to get back to a regular DataFrame
+            embeddings_selected = embeddings_selected.reset_index()
+            # Store the embeddings
+            self.embeddings = np.array(embeddings_selected['embedding'].tolist())
+            print(f"Loaded {len(self.embeddings)} embeddings with shape {self.embeddings[0].shape}")
+        else:
+            self.embeddings = None
 
         # If we have the full data, extract input and output values
         if has_full_data:
@@ -535,6 +260,40 @@ class Dataset_TextPrompt(Dataset):
             # Convert to numpy arrays
             self.data_x = np.array(input_values)
             self.data_y = np.array(output_values)
+
+            # Apply scaling if enabled
+            if self.scale:
+                self.scaler = StandardScaler()
+                # Get training data indices
+                train_indices = np.where(np.isin(self.sequence_ids, train_ids))[0]
+
+                # Reshape data for scaling if needed
+                orig_shape_x = self.data_x.shape
+                orig_shape_y = self.data_y.shape
+
+                # Reshape to 2D for scaling
+                if len(orig_shape_x) > 2:
+                    data_x_2d = self.data_x.reshape(orig_shape_x[0], -1)
+                    data_y_2d = self.data_y.reshape(orig_shape_y[0], -1)
+                else:
+                    data_x_2d = self.data_x
+                    data_y_2d = self.data_y
+
+                # Fit scaler on training data only
+                train_data = data_x_2d[train_indices]
+                self.scaler.fit(train_data)
+
+                # Transform all data
+                data_x_scaled = self.scaler.transform(data_x_2d)
+                data_y_scaled = self.scaler.transform(data_y_2d)
+
+                # Reshape back to original shape
+                if len(orig_shape_x) > 2:
+                    self.data_x = data_x_scaled.reshape(orig_shape_x)
+                    self.data_y = data_y_scaled.reshape(orig_shape_y)
+                else:
+                    self.data_x = data_x_scaled
+                    self.data_y = data_y_scaled
 
             # Create dummy time features (same shape as data_x)
             self.data_stamp = np.zeros((len(self.data_x), self.seq_len, 4))
@@ -566,6 +325,12 @@ class Dataset_TextPrompt(Dataset):
         variable = self.variables[index]
         sequence_id = self.sequence_ids[index]
 
+        # Get the embedding for this sample if available
+        if self.embeddings is not None:
+            embedding = self.embeddings[index]
+        else:
+            embedding = None
+
         # If we have actual data, use it
         if hasattr(self, 'data_x') and len(self.data_x) > 0:
             seq_x = self.data_x[index]
@@ -591,11 +356,60 @@ class Dataset_TextPrompt(Dataset):
         seq_x_mark = torch.FloatTensor(seq_x_mark)
         seq_y_mark = torch.FloatTensor(seq_y_mark)
 
+        # Store embedding as an attribute that can be accessed later
+        if embedding is not None:
+            self.current_embedding = torch.FloatTensor(embedding)
+        else:
+            self.current_embedding = None
+
         return seq_x, seq_y, seq_x_mark, seq_y_mark
 
     def __len__(self):
         return len(self.text_descriptions)
 
+    def get_embedding(self, index):
+        """
+        Get the pre-computed embedding for a specific index
+
+        Args:
+            index (int): Index of the sample
+
+        Returns:
+            torch.Tensor: Embedding tensor or None if not available
+        """
+        if self.embeddings is not None:
+            return torch.FloatTensor(self.embeddings[index])
+        return None
+
+    def get_current_embedding(self):
+        """
+        Get the embedding for the most recently accessed sample
+
+        Returns:
+            torch.Tensor: Embedding tensor or None if not available
+        """
+        if hasattr(self, 'current_embedding'):
+            return self.current_embedding
+        return None
+
     def inverse_transform(self, data):
-        # No scaling is applied in this dataset, so just return the data
-        return data
+        # If scaling was applied, inverse transform the data
+        if hasattr(self, 'scaler') and self.scale:
+            # Reshape data for inverse scaling if needed
+            orig_shape = data.shape
+            if len(orig_shape) > 2:
+                data_2d = data.reshape(orig_shape[0], -1)
+            else:
+                data_2d = data
+
+            # Inverse transform
+            data_inverse = self.scaler.inverse_transform(data_2d)
+
+            # Reshape back to original shape
+            if len(orig_shape) > 2:
+                return data_inverse.reshape(orig_shape)
+            else:
+                return data_inverse
+        else:
+            # No scaling was applied, so just return the data
+            return data

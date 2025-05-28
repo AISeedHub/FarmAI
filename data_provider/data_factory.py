@@ -72,6 +72,8 @@ def data_provider(args, flag):
     shuffle_flag = False if (flag == 'test' or flag == 'TEST') else True
     drop_last = False
     batch_size = args.batch_size
+    if flag == 'test':
+        batch_size = 1
     freq = args.freq
 
     data_set = Dataset(
@@ -84,11 +86,20 @@ def data_provider(args, flag):
         timeenc=timeenc,
         freq=freq
     )
-    print(flag, len(data_set))
 
     data_loader = MultiEpochsDataLoader(data_set,
                                         batch_size=batch_size,
                                         shuffle=shuffle_flag,
                                         drop_last=drop_last)
+    print(f"{flag} DataLoader length: {len(data_loader)}")
+    print(f"{flag} DataLoader batch size: {data_loader.batch_size}")
+    print(f"{flag} DataLoader dataset length: {len(data_set)}")
+    print(f"{flag} DataLoader dataset features: {data_set.features}")
+    print(f"{flag} DataLoader dataset target: {data_set.target}")
+    print(f"{flag} DataLoader dataset freq: {data_set.freq}")
+    print(f"{flag} DataLoader dataset timeenc: {data_set.timeenc}")
+    print(f"{flag} DataLoader drop_last: {data_loader.drop_last}")
+    print(f"{flag} DataLoader shuffle: {shuffle_flag}")
+    print("=" * 50)
 
     return data_set, data_loader

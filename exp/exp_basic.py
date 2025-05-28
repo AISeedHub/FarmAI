@@ -24,14 +24,14 @@ class Exp_Basic(object):
             print('Use CPU')
         return device
 
-    def _get_data(self):
+    def _get_data(self, flag):
         pass
 
-    def vali(self):
+    def vali(self, validation_data, validation_loader, criterion):
         pass
 
-    def train(self):
+    def train(self, setting):
         pass
 
-    def test(self):
+    def test(self, setting, best_model=None):
         pass

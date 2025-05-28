@@ -146,12 +146,12 @@ def generate_prompt(series, variable_name="the variable", n_forecast=None):
     seasonality = detect_seasonality(series)
 
     # Format series values (limit to first 10 and last 10 if very long)
-    if len(series) > 20:
-        series_str = ', '.join([f"{x:.1f}" for x in series[:10]])
-        series_str += ', ...'
-        series_str += ', '.join([f"{x:.1f}" for x in series[-10:]])
-    else:
-        series_str = ', '.join([f"{x:.1f}" for x in series])
+    # if len(series) > 20:
+    #     series_str = ', '.join([f"{x:.1f}" for x in series[:10]])
+    #     series_str += ', ...'
+    #     series_str += ', '.join([f"{x:.1f}" for x in series[-10:]])
+    # else:
+    series_str = ', '.join([f"{x:.1f}" for x in series])
 
     # Create the prompt
     prompt = f"""The following is a time series of {variable_name} measured at regular intervals:

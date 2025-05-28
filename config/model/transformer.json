@@ -1,0 +1,12 @@
+{
+    "model_name": "Transformer",
+    "d_model": 512,
+    "n_heads": 8,
+    "e_layers": 2,
+    "d_layers": 1,
+    "d_ff": 2048,
+    "factor": 5,
+    "dropout": 0.05,
+    "activation": "gelu",
+    "output_attention": false
+}
