@@ -1,1 +1,1 @@
-# FarmAI
+# AISeedHub/LLMPatchTST
