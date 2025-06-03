@@ -2,8 +2,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from pytorch_tcn import TCN as PyTorchTCN
-from typing import Optional, List, Union, Tuple
-import numpy as np
 
 class Model(nn.Module):
     def __init__(self, configs):

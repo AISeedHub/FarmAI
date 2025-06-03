@@ -1,0 +1,14 @@
+{
+    "model_name": "PatchTST",
+    "d_model": 128,
+    "n_heads": 8,
+    "e_layers": 2,
+    "d_layers": 1,
+    "d_ff": 128,
+    "factor": 3,
+    "dropout": 0.7,
+    "activation": "gelu",
+    "output_attention": false,
+    "patch_len": 16,
+    "stride": 8
+}

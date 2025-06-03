@@ -1,0 +1,6 @@
+{
+    "model_name": "Statistical",
+    "stat_method": "naive_last",
+    "output_attention": false,
+    "arima_order": [1, 1, 0]
+}

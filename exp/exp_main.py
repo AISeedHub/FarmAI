@@ -1,6 +1,6 @@
 from data_provider.data_factory import *
 from exp.exp_basic import Exp_Basic
-from models import (Informer, Transformer, PatchTST, TCNTorch, LLMPatchTST)
+from models import (Informer, Transformer, PatchTST, TCNTorch, LLMPatchTST, Statistical)
 from utils.tools import EarlyStopping, adjust_learning_rate, visual, get_model_size
 from utils.metrics import metric
 from utils.losses import MaskedLoss, DownstreamLoss
@@ -39,10 +39,14 @@ class Exp_Main(Exp_Basic):
         path = os.path.join(self.args.checkpoints, setting)
         if not os.path.exists(path):
             os.makedirs(path)
+            print("Created path for log:", path)
         # Writer will output to ./tensorflow/ directory by default
-        self.writer = SummaryWriter(path + '/tensorflow/')
+        tensorflow_path = path + '/tensorflow/'
+        os.makedirs(tensorflow_path, exist_ok=True)
 
-    def _calculate_flops(self):
+        # self.writer = SummaryWriter(str(tensorflow_path))
+
+    def _calculate_flops(self, model):
         # Define the input shapes correctly
         input_shape = (1, self.args.seq_len, self.args.enc_in)  # Adjust num_features as needed
         x_mark_enc_shape = (1, self.args.seq_len, self.args.enc_in)  # Example shape, adjust as needed
@@ -57,9 +61,9 @@ class Exp_Main(Exp_Basic):
         dummy_x_mark_dec = torch.randn(x_mark_dec_shape).to(self.device)
 
         # Perform a forward pass to calculate FLOPS
-        flops = FlopCountAnalysis(self.model, (dummy_input, dummy_x_mark_enc, dummy_x_dec, dummy_x_mark_dec))
+        flops = FlopCountAnalysis(model, (dummy_input, dummy_x_mark_enc, dummy_x_dec, dummy_x_mark_dec))
         print(f"FLOPS: {flops.total()}")
-        self.writer.add_scalar("FLOPS", flops.total(), 0)
+        # self.writer.add_scalar("FLOPS", flops.total(), 0)
 
     def _build_model(self):
         model_dict = {
@@ -68,7 +72,8 @@ class Exp_Main(Exp_Basic):
             'PatchTST': PatchTST,
             # 'TCN': TCN,
             'TCNTorch': TCNTorch,
-            'LLMPatchTST': LLMPatchTST
+            'LLMPatchTST': LLMPatchTST,
+            'Statistical': Statistical
         }
         print(self.args.model)
         selected_model = model_dict[self.args.model]
@@ -78,9 +83,11 @@ class Exp_Main(Exp_Basic):
             # If no Model attribute, assume it's already a model class
             model = selected_model(self.args).float()
 
-        # Log model summary to TensorBoard
-        model_summary = str(summary(model))
-        print(model_summary)
+        # model summary
+        print("Model Summary:")
+        print(summary(model))
+        # Calculate FLOPS if required
+        # self._calculate_flops(model)
 
         if self.args.use_multi_gpu and self.args.use_gpu:
             model = nn.DataParallel(model, device_ids=self.args.device_ids)
@@ -267,8 +274,8 @@ class Exp_Main(Exp_Basic):
         best_model_path = path + '/' + 'checkpoint.pth'
         self.model.load_state_dict(torch.load(best_model_path))
         # Log the best model checkpoint path and size to TensorBoard
-        self.writer.add_text("Model Checkpoint Path", os.path.abspath(best_model_path), 0)
-        self.writer.add_scalar("Model Size (MB)", get_model_size(self.model), 0)
+        # self.writer.add_text("Model Checkpoint Path", os.path.abspath(best_model_path), 0)
+        # self.writer.add_scalar("Model Size (MB)", get_model_size(self.model), 0)
 
         return best_model_path
 
@@ -359,34 +366,37 @@ class Exp_Main(Exp_Basic):
 
     # log batch-level metrics
     def _log_batch_metrics(self, loss, step):
-        self.writer.add_scalar('batch_loss', loss.item(), step)
-        self.writer.add_scalar('batch_time', time.time() - self.epoch_time, step)
+        # self.writer.add_scalar('batch_loss', loss.item(), step)
+        # self.writer.add_scalar('batch_time', time.time() - self.epoch_time, step)
         return
 
     def _log_epoch_metrics(self, epoch, train_loss, vali_loss, test_loss, model_optim, vali_time, test_time):
         print(
             f"Epoch: {epoch + 1} | Train Loss: {train_loss:.7f} Vali Loss: {vali_loss:.7f} Test Loss: {test_loss:.7f}")
         # Log to TensorBoard
-        self.writer.add_scalars('loss', {
-            'train': train_loss,
-            'vali': vali_loss,
-            'test': test_loss
-        }, epoch)
-        self.writer.add_scalar('learning_rate', model_optim.param_groups[0]['lr'], epoch)
-        self.writer.add_scalar('vali_time', vali_time, epoch)
-        self.writer.add_scalar('test_time', test_time, epoch)
+        # self.writer.add_scalars('loss', {
+        #     'train': train_loss,
+        #     'vali': vali_loss,
+        #     'test': test_loss
+        # }, epoch)
+        # self.writer.add_scalar('learning_rate', model_optim.param_groups[0]['lr'], epoch)
+        # self.writer.add_scalar('vali_time', vali_time, epoch)
+        # self.writer.add_scalar('test_time', test_time, epoch)
 
     def _log_test_metrics(self, mae, mse, rmse, mape, mspe):
         # Log test metrics to TensorBoard
-        self.writer.add_scalar('test/mae', mae, 0)
-        self.writer.add_scalar('test/mse', mse, 0)
-        self.writer.add_scalar('test/rmse', rmse, 0)
-        self.writer.add_scalar('test/mape', mape, 0)
-        self.writer.add_scalar('test/mspe', mspe, 0)
+        # self.writer.add_scalar('test/mae', mae, 0)
+        # self.writer.add_scalar('test/mse', mse, 0)
+        # self.writer.add_scalar('test/rmse', rmse, 0)
+        # self.writer.add_scalar('test/mape', mape, 0)
+        # self.writer.add_scalar('test/mspe', mspe, 0)
+        return
 
     def _log_weight_distribution(self, step):
-        for name, param in self.model.named_parameters():
-            if 'weight' in name:  # Log only weights, not biases
-                self.writer.add_histogram(f'weights/{name}', param.data, step)
-                if param.grad is not None:
-                    self.writer.add_histogram(f'gradients/{name}', param.grad, step)
+        # for name, param in self.model.named_parameters():
+        #     if 'weight' in name:  # Log only weights, not biases
+        #         self.writer.add_histogram(f'weights/{name}', param.data, step)
+        #         if param.grad is not None:
+        #             self.writer.add_histogram(f'gradients/{name}', param.grad, step)
+        # Log model size
+        return
