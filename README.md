@@ -55,7 +55,8 @@ TimeCMA (Time Series Cross-Modal Alignment) is the main model of this project, f
 - Normalization layers for stable training
   
 Details of the architecture can be found in the [TimeCMA](https://github.com/ChenxiLiu-HNU/TimeCMA)
-![TimeCMA Architecture Image Placeholder](https://private-user-images.githubusercontent.com/46647878/443046949-d188e92e-e993-4481-851e-2b74c5353d0a.png?jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3NDkwMTU4NTQsIm5iZiI6MTc0OTAxNTU1NCwicGF0aCI6Ii80NjY0Nzg3OC80NDMwNDY5NDktZDE4OGU5MmUtZTk5My00NDgxLTg1MWUtMmI3NGM1MzUzZDBhLnBuZz9YLUFtei1BbGdvcml0aG09QVdTNC1ITUFDLVNIQTI1NiZYLUFtei1DcmVkZW50aWFsPUFLSUFWQ09EWUxTQTUzUFFLNFpBJTJGMjAyNTA2MDQlMkZ1cy1lYXN0LTElMkZzMyUyRmF3czRfcmVxdWVzdCZYLUFtei1EYXRlPTIwMjUwNjA0VDA1MzkxNFomWC1BbXotRXhwaXJlcz0zMDAmWC1BbXotU2lnbmF0dXJlPTE1NDIzMTE0YTkwZGQxOTBjNzg0NDZhODk3ZjBiYjhjYzJlZTdiMTA0NDIyMDFmOTQxMDZhZDMwZmNlYWUyMGUmWC1BbXotU2lnbmVkSGVhZGVycz1ob3N0In0.By8HkVwPmK8u5yqRZIK0RFnp8PHT53L2mX62kIyRQ3s)
+
+![img_1.png](imgs/img_1.png)
 
 ## II. Dataset
 
